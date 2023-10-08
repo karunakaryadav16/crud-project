@@ -1,7 +1,7 @@
-// server.js
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose(); // Import SQLite3 module
 
 const app = express();
 const port = 3033;
@@ -9,155 +9,86 @@ const port = 3033;
 app.use(cors());
 app.use(bodyParser.json());
 
-// In-memory data store (replace this with a database in a real application)
-const items = [
-  { id: 1, name: 'Item 1' },
-  { id: 2, name: 'Item 2' },
-  { id: 3, name: 'Item 3' },
-];
+// Create a SQLite database connection
+const db = new sqlite3.Database('mydatabase.db'); // Use the name of your SQLite database file
+
+// Create a table to store items if it doesn't already exist
+db.serialize(() => {
+  db.run('CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT)');
+});
 
 // Create an item (C - Create)
 app.post('/items', (req, res) => {
-  const newItem = {
-    id: items.length + 1,
-    name: req.body.name,
-  };
-  items.push(newItem);
-  res.status(201).json(newItem);
+  const newItemName = req.body.name;
+  const sql = 'INSERT INTO items (name) VALUES (?)';
+  const params = [newItemName];
+
+  db.run(sql, params, function (err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(201).json({ id: this.lastID, name: newItemName });
+  });
 });
 
 // Read all items (R - Read)
 app.get('/items', (req, res) => {
-  res.json(items);
+  const sql = 'SELECT * FROM items';
+
+  db.all(sql, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
 });
 
 // Read a single item by ID
 app.get('/items/:id', (req, res) => {
   const itemId = parseInt(req.params.id);
-  const item = items.find((item) => item.id === itemId);
-  if (item) {
-    res.json(item);
-  } else {
-    res.status(404).json({ message: 'Item not found' });
-  }
+  const sql = 'SELECT * FROM items WHERE id = ?';
+  const params = [itemId];
+
+  db.get(sql, params, (err, row) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    if (!row) {
+      return res.status(404).json({ message: 'Item not found' });
+    }
+    res.json(row);
+  });
 });
 
 // Update an item by ID (U - Update)
 app.put('/items/:id', (req, res) => {
   const itemId = parseInt(req.params.id);
-  const updatedItem = req.body;
-  const index = items.findIndex((item) => item.id === itemId);
-  if (index !== -1) {
-    items[index] = { ...items[index], ...updatedItem };
-    res.json(items[index]);
-  } else {
-    res.status(404).json({ message: 'Item not found' });
-  }
+  const updatedItemName = req.body.name;
+  const sql = 'UPDATE items SET name = ? WHERE id = ?';
+  const params = [updatedItemName, itemId];
+
+  db.run(sql, params, function (err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ id: itemId, name: updatedItemName });
+  });
 });
 
 // Delete an item by ID (D - Delete)
 app.delete('/items/:id', (req, res) => {
   const itemId = parseInt(req.params.id);
-  const index = items.findIndex((item) => item.id === itemId);
-  if (index !== -1) {
-    const deletedItem = items.splice(index, 1)[0];
-    res.json(deletedItem);
-  } else {
-    res.status(404).json({ message: 'Item not found' });
-  }
+  const sql = 'DELETE FROM items WHERE id = ?';
+  const params = [itemId];
+
+  db.run(sql, params, function (err) {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json({ id: itemId });
+  });
 });
 
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
